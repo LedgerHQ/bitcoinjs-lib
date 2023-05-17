@@ -72,7 +72,7 @@ export class Transaction {
   static readonly ADVANCED_TRANSACTION_MARKER = 0x00;
   static readonly ADVANCED_TRANSACTION_FLAG = 0x01;
 
-  static fromBuffer(buffer: Buffer, _NO_STRICT?: boolean): Transaction {
+  static fromBuffer(buffer: Buffer, _NO_STRICT?: boolean, isSigned = true): Transaction {
     const bufferReader = new BufferReader(buffer);
 
     const tx = new Transaction();
@@ -110,7 +110,7 @@ export class Transaction {
       });
     }
 
-    if (hasWitnesses) {
+    if (isSigned && hasWitnesses) {
       for (let i = 0; i < vinLen; ++i) {
         tx.ins[i].witness = bufferReader.readVector();
       }
@@ -129,8 +129,8 @@ export class Transaction {
     return tx;
   }
 
-  static fromHex(hex: string): Transaction {
-    return Transaction.fromBuffer(Buffer.from(hex, 'hex'), false);
+  static fromHex(hex: string, isSigned = true): Transaction {
+    return Transaction.fromBuffer(Buffer.from(hex, 'hex'), false, isSigned);
   }
 
   static isCoinbaseHash(buffer: Buffer): boolean {

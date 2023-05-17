@@ -45,7 +45,7 @@ class Transaction {
     this.ins = [];
     this.outs = [];
   }
-  static fromBuffer(buffer, _NO_STRICT) {
+  static fromBuffer(buffer, _NO_STRICT, isSigned = true) {
     const bufferReader = new bufferutils_1.BufferReader(buffer);
     const tx = new Transaction();
     tx.version = bufferReader.readInt32();
@@ -77,7 +77,7 @@ class Transaction {
         script: bufferReader.readVarSlice(),
       });
     }
-    if (hasWitnesses) {
+    if (isSigned && hasWitnesses) {
       for (let i = 0; i < vinLen; ++i) {
         tx.ins[i].witness = bufferReader.readVector();
       }
@@ -91,8 +91,8 @@ class Transaction {
       throw new Error('Transaction has unexpected data');
     return tx;
   }
-  static fromHex(hex) {
-    return Transaction.fromBuffer(Buffer.from(hex, 'hex'), false);
+  static fromHex(hex, isSigned = true) {
+    return Transaction.fromBuffer(Buffer.from(hex, 'hex'), false, isSigned);
   }
   static isCoinbaseHash(buffer) {
     typeforce(types.Hash256bit, buffer);
