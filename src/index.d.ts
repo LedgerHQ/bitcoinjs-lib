@@ -13,3 +13,4 @@ export { Network } from './networks';
 export { Payment, PaymentCreator, PaymentOpts, Stack, StackElement, } from './payments';
 export { Input as TxInput, Output as TxOutput } from './transaction';
 export { initEccLib } from './ecc_lib';
+export { isP2MS, isP2PK, isP2PKH, isP2SHScript, isP2TR, isP2WPKH, isP2WSHScript, } from './psbt/psbtutils';
