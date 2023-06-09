@@ -7,6 +7,7 @@ export interface Input {
     hash: Buffer;
     index: number;
     script: Buffer;
+    prevOutScript: Buffer;
     sequence: number;
     witness: Buffer[];
 }
@@ -29,7 +30,7 @@ export declare class Transaction {
     ins: Input[];
     outs: Output[];
     isCoinbase(): boolean;
-    addInput(hash: Buffer, index: number, sequence?: number, scriptSig?: Buffer): number;
+    addInput(hash: Buffer, index: number, sequence?: number, scriptSig?: Buffer, prevOutScript?: Buffer): number;
     addOutput(scriptPubKey: Buffer, value: number): number;
     hasWitnesses(): boolean;
     weight(): number;
