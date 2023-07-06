@@ -8,7 +8,6 @@ import * as bcrypto from './crypto';
 import * as bscript from './script';
 import { OPS as opcodes } from './script';
 import * as types from './types';
-
 const { typeforce } = types;
 
 function varSliceSize(someScript: Buffer): number {
@@ -57,7 +56,6 @@ export interface Input {
   hash: Buffer;
   index: number;
   script: Buffer;
-  prevOutScript: Buffer;
   sequence: number;
   witness: Buffer[];
 }
@@ -74,11 +72,7 @@ export class Transaction {
   static readonly ADVANCED_TRANSACTION_MARKER = 0x00;
   static readonly ADVANCED_TRANSACTION_FLAG = 0x01;
 
-  static fromBuffer(
-    buffer: Buffer,
-    _NO_STRICT?: boolean,
-    isSigned = true,
-  ): Transaction {
+  static fromBuffer(buffer: Buffer, _NO_STRICT?: boolean, isSigned = true): Transaction {
     const bufferReader = new BufferReader(buffer);
 
     const tx = new Transaction();
@@ -103,7 +97,6 @@ export class Transaction {
         hash: bufferReader.readSlice(32),
         index: bufferReader.readUInt32(),
         script: bufferReader.readVarSlice(),
-        prevOutScript: bufferReader.readVarSlice(),
         sequence: bufferReader.readUInt32(),
         witness: EMPTY_WITNESS,
       });
@@ -164,7 +157,6 @@ export class Transaction {
     index: number,
     sequence?: number,
     scriptSig?: Buffer,
-    prevOutScript?: Buffer,
   ): number {
     typeforce(
       types.tuple(
@@ -186,7 +178,6 @@ export class Transaction {
         hash,
         index,
         script: scriptSig || EMPTY_BUFFER,
-        prevOutScript: prevOutScript || EMPTY_BUFFER,
         sequence: sequence as number,
         witness: EMPTY_WITNESS,
       }) - 1
@@ -229,7 +220,7 @@ export class Transaction {
       varuint.encodingLength(this.ins.length) +
       varuint.encodingLength(this.outs.length) +
       this.ins.reduce((sum, input) => {
-        return sum + 40 + varSliceSize(input.script) + varSliceSize(input.prevOutScript);
+        return sum + 40 + varSliceSize(input.script);
       }, 0) +
       this.outs.reduce((sum, output) => {
         return sum + 8 + varSliceSize(output.script);
@@ -252,7 +243,6 @@ export class Transaction {
         hash: txIn.hash,
         index: txIn.index,
         script: txIn.script,
-        prevOutScript: txIn.prevOutScript,
         sequence: txIn.sequence,
         witness: txIn.witness,
       };
@@ -654,7 +644,6 @@ export class Transaction {
       bufferWriter.writeSlice(txIn.hash);
       bufferWriter.writeUInt32(txIn.index);
       bufferWriter.writeVarSlice(txIn.script);
-      bufferWriter.writeVarSlice(txIn.prevOutScript);
       bufferWriter.writeUInt32(txIn.sequence);
     });
 

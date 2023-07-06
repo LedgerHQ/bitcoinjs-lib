@@ -66,7 +66,6 @@ class Transaction {
         hash: bufferReader.readSlice(32),
         index: bufferReader.readUInt32(),
         script: bufferReader.readVarSlice(),
-        prevOutScript: bufferReader.readVarSlice(),
         sequence: bufferReader.readUInt32(),
         witness: EMPTY_WITNESS,
       });
@@ -107,7 +106,7 @@ class Transaction {
       this.ins.length === 1 && Transaction.isCoinbaseHash(this.ins[0].hash)
     );
   }
-  addInput(hash, index, sequence, scriptSig, prevOutScript) {
+  addInput(hash, index, sequence, scriptSig) {
     typeforce(
       types.tuple(
         types.Hash256bit,
@@ -126,7 +125,6 @@ class Transaction {
         hash,
         index,
         script: scriptSig || EMPTY_BUFFER,
-        prevOutScript: prevOutScript || EMPTY_BUFFER,
         sequence: sequence,
         witness: EMPTY_WITNESS,
       }) - 1
@@ -162,12 +160,7 @@ class Transaction {
       bufferutils_1.varuint.encodingLength(this.ins.length) +
       bufferutils_1.varuint.encodingLength(this.outs.length) +
       this.ins.reduce((sum, input) => {
-        return (
-          sum +
-          40 +
-          varSliceSize(input.script) +
-          varSliceSize(input.prevOutScript)
-        );
+        return sum + 40 + varSliceSize(input.script);
       }, 0) +
       this.outs.reduce((sum, output) => {
         return sum + 8 + varSliceSize(output.script);
@@ -188,7 +181,6 @@ class Transaction {
         hash: txIn.hash,
         index: txIn.index,
         script: txIn.script,
-        prevOutScript: txIn.prevOutScript,
         sequence: txIn.sequence,
         witness: txIn.witness,
       };
@@ -514,7 +506,6 @@ class Transaction {
       bufferWriter.writeSlice(txIn.hash);
       bufferWriter.writeUInt32(txIn.index);
       bufferWriter.writeVarSlice(txIn.script);
-      bufferWriter.writeVarSlice(txIn.prevOutScript);
       bufferWriter.writeUInt32(txIn.sequence);
     });
     bufferWriter.writeVarInt(this.outs.length);
