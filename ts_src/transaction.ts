@@ -10,7 +10,7 @@ import { OPS as opcodes } from './script';
 import * as types from './types';
 const { typeforce } = types;
 
-function varSliceSize(someScript: Buffer): number {
+export function varSliceSize(someScript: Buffer): number {
   const length = someScript.length;
 
   return varuint.encodingLength(length) + length;
@@ -86,7 +86,9 @@ export class Transaction {
       marker === Transaction.ADVANCED_TRANSACTION_MARKER &&
       flag === Transaction.ADVANCED_TRANSACTION_FLAG
     ) {
-      hasWitnesses = true;
+      // hasWitnesses = true; // the flags are always present because hsm needs them.
+      // BUT it does not mean that there are witness at the end to be parsed
+      // TODO: is there case we have witnesses to parse ??
     } else {
       bufferReader.offset -= 2;
     }
@@ -216,7 +218,8 @@ export class Transaction {
     const hasWitnesses = _ALLOW_WITNESS && this.hasWitnesses();
 
     return (
-      (hasWitnesses ? 10 : 8) +
+      // (hasWitnesses ? 10 : 8) + // Allways write marker & flag
+      10 +
       varuint.encodingLength(this.ins.length) +
       varuint.encodingLength(this.outs.length) +
       this.ins.reduce((sum, input) => {
@@ -633,10 +636,10 @@ export class Transaction {
 
     const hasWitnesses = _ALLOW_WITNESS && this.hasWitnesses();
 
-    if (hasWitnesses) {
+    // if (hasWitnesses) { // those are needed by hsm to sign tx
       bufferWriter.writeUInt8(Transaction.ADVANCED_TRANSACTION_MARKER);
       bufferWriter.writeUInt8(Transaction.ADVANCED_TRANSACTION_FLAG);
-    }
+    // }
 
     bufferWriter.writeVarInt(this.ins.length);
 
