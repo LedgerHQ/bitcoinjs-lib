@@ -72,25 +72,15 @@ export class Transaction {
   static readonly ADVANCED_TRANSACTION_MARKER = 0x00;
   static readonly ADVANCED_TRANSACTION_FLAG = 0x01;
 
-  static fromBuffer(buffer: Buffer, _NO_STRICT?: boolean, isSigned = true): Transaction {
+  static fromBuffer(buffer: Buffer, _NO_STRICT?: boolean, isSigned: boolean = true, isNativeSegwit: boolean = true): Transaction {
     const bufferReader = new BufferReader(buffer);
 
     const tx = new Transaction();
     tx.version = bufferReader.readInt32();
-
-    const marker = bufferReader.readUInt8();
-    const flag = bufferReader.readUInt8();
-
-    let hasWitnesses = false;
-    if (
-      marker === Transaction.ADVANCED_TRANSACTION_MARKER &&
-      flag === Transaction.ADVANCED_TRANSACTION_FLAG
-    ) {
-      // hasWitnesses = true; // the flags are always present because hsm needs them.
-      // BUT it does not mean that there are witness at the end to be parsed
-      // TODO: is there case we have witnesses to parse ??
-    } else {
-      bufferReader.offset -= 2;
+    tx.nativeSegwit = isNativeSegwit;
+    if (isNativeSegwit) {
+      bufferReader.readUInt8(); // marker
+      bufferReader.readUInt8(); // flag
     }
 
     const vinLen = bufferReader.readVarInt();
@@ -112,7 +102,7 @@ export class Transaction {
       });
     }
 
-    if (isSigned && hasWitnesses) {
+    if (isSigned && isNativeSegwit) {
       for (let i = 0; i < vinLen; ++i) {
         tx.ins[i].witness = bufferReader.readVector();
       }
@@ -131,8 +121,8 @@ export class Transaction {
     return tx;
   }
 
-  static fromHex(hex: string, isSigned = true): Transaction {
-    return Transaction.fromBuffer(Buffer.from(hex, 'hex'), false, isSigned);
+  static fromHex(hex: string, isSigned: boolean, isNativeSegwit: boolean): Transaction {
+    return Transaction.fromBuffer(Buffer.from(hex, 'hex'), false, isSigned, isNativeSegwit);
   }
 
   static isCoinbaseHash(buffer: Buffer): boolean {
@@ -147,6 +137,7 @@ export class Transaction {
   locktime: number = 0;
   ins: Input[] = [];
   outs: Output[] = [];
+  nativeSegwit: boolean = false;
 
   isCoinbase(): boolean {
     return (
@@ -204,6 +195,14 @@ export class Transaction {
     });
   }
 
+  setNativeSegwit(ns: boolean) {
+    this.nativeSegwit = ns;
+  }
+
+  isNativeSegwit(): boolean {
+    return this.nativeSegwit;
+  }
+
   weight(): number {
     const base = this.byteLength(false);
     const total = this.byteLength(true);
@@ -218,8 +217,7 @@ export class Transaction {
     const hasWitnesses = _ALLOW_WITNESS && this.hasWitnesses();
 
     return (
-      // (hasWitnesses ? 10 : 8) + // Allways write marker & flag
-      10 +
+      (this.isNativeSegwit() ? 10 : 8) +
       varuint.encodingLength(this.ins.length) +
       varuint.encodingLength(this.outs.length) +
       this.ins.reduce((sum, input) => {
@@ -634,12 +632,10 @@ export class Transaction {
 
     bufferWriter.writeInt32(this.version);
 
-    const hasWitnesses = _ALLOW_WITNESS && this.hasWitnesses();
-
-    // if (hasWitnesses) { // those are needed by hsm to sign tx
+    if (this.isNativeSegwit()) {
       bufferWriter.writeUInt8(Transaction.ADVANCED_TRANSACTION_MARKER);
       bufferWriter.writeUInt8(Transaction.ADVANCED_TRANSACTION_FLAG);
-    // }
+    }
 
     bufferWriter.writeVarInt(this.ins.length);
 
@@ -660,6 +656,8 @@ export class Transaction {
 
       bufferWriter.writeVarSlice(txOut.script);
     });
+
+    const hasWitnesses = _ALLOW_WITNESS && this.hasWitnesses();
 
     if (hasWitnesses) {
       this.ins.forEach(input => {

@@ -1,4 +1,5 @@
 /// <reference types="node" />
+export declare function varSliceSize(someScript: Buffer): number;
 export interface Output {
     script: Buffer;
     value: number;
@@ -21,17 +22,20 @@ export declare class Transaction {
     static readonly SIGHASH_INPUT_MASK = 128;
     static readonly ADVANCED_TRANSACTION_MARKER = 0;
     static readonly ADVANCED_TRANSACTION_FLAG = 1;
-    static fromBuffer(buffer: Buffer, _NO_STRICT?: boolean, isSigned?: boolean): Transaction;
-    static fromHex(hex: string, isSigned?: boolean): Transaction;
+    static fromBuffer(buffer: Buffer, _NO_STRICT?: boolean, isSigned?: boolean, isNativeSegwit?: boolean): Transaction;
+    static fromHex(hex: string, isSigned: boolean, isNativeSegwit: boolean): Transaction;
     static isCoinbaseHash(buffer: Buffer): boolean;
     version: number;
     locktime: number;
     ins: Input[];
     outs: Output[];
+    nativeSegwit: boolean;
     isCoinbase(): boolean;
     addInput(hash: Buffer, index: number, sequence?: number, scriptSig?: Buffer): number;
     addOutput(scriptPubKey: Buffer, value: number): number;
     hasWitnesses(): boolean;
+    setNativeSegwit(ns: boolean): void;
+    isNativeSegwit(): boolean;
     weight(): number;
     virtualSize(): number;
     byteLength(_ALLOW_WITNESS?: boolean): number;
