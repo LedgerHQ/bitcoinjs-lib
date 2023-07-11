@@ -12,6 +12,8 @@ exports.isP2WSHScript =
   exports.opcodes =
   exports.Psbt =
   exports.Block =
+  exports.transaction =
+  exports.bufferutils =
   exports.script =
   exports.payments =
   exports.networks =
@@ -28,6 +30,10 @@ const payments = require('./payments');
 exports.payments = payments;
 const script = require('./script');
 exports.script = script;
+const bufferutils = require('./bufferutils');
+exports.bufferutils = bufferutils;
+const transaction = require('./transaction');
+exports.transaction = transaction;
 var block_1 = require('./block');
 Object.defineProperty(exports, 'Block', {
   enumerable: true,
