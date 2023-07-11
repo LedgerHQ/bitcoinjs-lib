@@ -3,6 +3,7 @@
   "version": "6.1.0",
   "description": "Client-side Bitcoin JavaScript library",
   "main": "./ts_src/index.ts",
+  "type": "module",
   "engines": {
     "node": ">=8.0.0"
   },
