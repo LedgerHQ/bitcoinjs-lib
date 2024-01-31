@@ -47,7 +47,53 @@ class Transaction {
     this.outs = [];
     this.nativeSegwit = false;
   }
-  static fromBuffer(
+  static fromBuffer(buffer, _NO_STRICT) {
+    const bufferReader = new bufferutils_1.BufferReader(buffer);
+    const tx = new Transaction();
+    tx.version = bufferReader.readInt32();
+    const marker = bufferReader.readUInt8();
+    const flag = bufferReader.readUInt8();
+    let hasWitnesses = false;
+    if (
+      marker === Transaction.ADVANCED_TRANSACTION_MARKER &&
+      flag === Transaction.ADVANCED_TRANSACTION_FLAG
+    ) {
+      hasWitnesses = true;
+    } else {
+      bufferReader.offset -= 2;
+    }
+    const vinLen = bufferReader.readVarInt();
+    for (let i = 0; i < vinLen; ++i) {
+      tx.ins.push({
+        hash: bufferReader.readSlice(32),
+        index: bufferReader.readUInt32(),
+        script: bufferReader.readVarSlice(),
+        sequence: bufferReader.readUInt32(),
+        witness: EMPTY_WITNESS,
+      });
+    }
+    const voutLen = bufferReader.readVarInt();
+    for (let i = 0; i < voutLen; ++i) {
+      tx.outs.push({
+        value: bufferReader.readUInt64(),
+        script: bufferReader.readVarSlice(),
+      });
+    }
+    if (hasWitnesses) {
+      for (let i = 0; i < vinLen; ++i) {
+        tx.ins[i].witness = bufferReader.readVector();
+      }
+      // was this pointless?
+      if (!tx.hasWitnesses())
+        throw new Error('Transaction has superfluous witness data');
+    }
+    tx.locktime = bufferReader.readUInt32();
+    if (_NO_STRICT) return tx;
+    if (bufferReader.offset !== buffer.length)
+      throw new Error('Transaction has unexpected data');
+    return tx;
+  }
+  static fromLedgerVaultBuffer(
     buffer,
     _NO_STRICT,
     isSigned = true,
@@ -92,13 +138,16 @@ class Transaction {
       throw new Error('Transaction has unexpected data');
     return tx;
   }
-  static fromHex(hex, isSigned, isNativeSegwit) {
-    return Transaction.fromBuffer(
+  static fromLedgerVaultHex(hex, isSigned, isNativeSegwit) {
+    return Transaction.fromLedgerVaultBuffer(
       Buffer.from(hex, 'hex'),
       false,
       isSigned,
       isNativeSegwit,
     );
+  }
+  static fromHex(hex) {
+    return Transaction.fromBuffer(Buffer.from(hex, 'hex'), false);
   }
   static isCoinbaseHash(buffer) {
     typeforce(types.Hash256bit, buffer);

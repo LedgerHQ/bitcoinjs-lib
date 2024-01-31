@@ -72,7 +72,64 @@ export class Transaction {
   static readonly ADVANCED_TRANSACTION_MARKER = 0x00;
   static readonly ADVANCED_TRANSACTION_FLAG = 0x01;
 
-  static fromBuffer(buffer: Buffer, _NO_STRICT?: boolean, isSigned: boolean = true, isNativeSegwit: boolean = true): Transaction {
+  static fromBuffer(buffer: Buffer, _NO_STRICT?: boolean): Transaction {
+    const bufferReader = new BufferReader(buffer);
+
+    const tx = new Transaction();
+    tx.version = bufferReader.readInt32();
+    
+    const marker = bufferReader.readUInt8();
+    const flag = bufferReader.readUInt8();
+
+    let hasWitnesses = false;
+    if (
+      marker === Transaction.ADVANCED_TRANSACTION_MARKER &&
+      flag === Transaction.ADVANCED_TRANSACTION_FLAG
+    ) {
+      hasWitnesses = true;
+    } else {
+      bufferReader.offset -= 2;
+    }
+
+    const vinLen = bufferReader.readVarInt();
+    for (let i = 0; i < vinLen; ++i) {
+      tx.ins.push({
+        hash: bufferReader.readSlice(32),
+        index: bufferReader.readUInt32(),
+        script: bufferReader.readVarSlice(),
+        sequence: bufferReader.readUInt32(),
+        witness: EMPTY_WITNESS,
+      });
+    }
+
+    const voutLen = bufferReader.readVarInt();
+    for (let i = 0; i < voutLen; ++i) {
+      tx.outs.push({
+        value: bufferReader.readUInt64(),
+        script: bufferReader.readVarSlice(),
+      });
+    }
+
+    if (hasWitnesses) {
+      for (let i = 0; i < vinLen; ++i) {
+        tx.ins[i].witness = bufferReader.readVector();
+      }
+
+      // was this pointless?
+      if (!tx.hasWitnesses())
+        throw new Error('Transaction has superfluous witness data');
+    }
+
+    tx.locktime = bufferReader.readUInt32();
+
+    if (_NO_STRICT) return tx;
+    if (bufferReader.offset !== buffer.length)
+      throw new Error('Transaction has unexpected data');
+
+    return tx;
+  }
+
+  static fromLedgerVaultBuffer(buffer: Buffer, _NO_STRICT?: boolean, isSigned: boolean = true, isNativeSegwit: boolean = true): Transaction {
     const bufferReader = new BufferReader(buffer);
 
     const tx = new Transaction();
@@ -121,8 +178,12 @@ export class Transaction {
     return tx;
   }
 
-  static fromHex(hex: string, isSigned: boolean, isNativeSegwit: boolean): Transaction {
-    return Transaction.fromBuffer(Buffer.from(hex, 'hex'), false, isSigned, isNativeSegwit);
+  static fromLedgerVaultHex(hex: string, isSigned: boolean, isNativeSegwit: boolean): Transaction {
+    return Transaction.fromLedgerVaultBuffer(Buffer.from(hex, 'hex'), false, isSigned, isNativeSegwit);
+  }
+
+  static fromHex(hex: string): Transaction {
+    return Transaction.fromBuffer(Buffer.from(hex, 'hex'), false);
   }
 
   static isCoinbaseHash(buffer: Buffer): boolean {
