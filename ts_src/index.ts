@@ -3,8 +3,10 @@ import * as crypto from './crypto';
 import * as networks from './networks';
 import * as payments from './payments';
 import * as script from './script';
+import * as bufferutils from './bufferutils';
+import * as transaction from './transaction';
 
-export { address, crypto, networks, payments, script };
+export { address, crypto, networks, payments, script, bufferutils, transaction };
 
 export { Block } from './block';
 export { TaggedHashPrefix } from './crypto';
@@ -30,3 +32,12 @@ export {
 } from './payments';
 export { Input as TxInput, Output as TxOutput } from './transaction';
 export { initEccLib } from './ecc_lib';
+export {
+  isP2MS,
+  isP2PK,
+  isP2PKH,
+  isP2SHScript,
+  isP2TR,
+  isP2WPKH,
+  isP2WSHScript,
+} from './psbt/psbtutils';

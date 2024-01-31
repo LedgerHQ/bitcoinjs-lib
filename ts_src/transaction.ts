@@ -10,7 +10,7 @@ import { OPS as opcodes } from './script';
 import * as types from './types';
 const { typeforce } = types;
 
-function varSliceSize(someScript: Buffer): number {
+export function varSliceSize(someScript: Buffer): number {
   const length = someScript.length;
 
   return varuint.encodingLength(length) + length;
@@ -77,7 +77,7 @@ export class Transaction {
 
     const tx = new Transaction();
     tx.version = bufferReader.readInt32();
-
+    
     const marker = bufferReader.readUInt8();
     const flag = bufferReader.readUInt8();
 
@@ -129,6 +129,59 @@ export class Transaction {
     return tx;
   }
 
+  static fromLedgerVaultBuffer(buffer: Buffer, _NO_STRICT?: boolean, isSigned: boolean = true, isNativeSegwit: boolean = true): Transaction {
+    const bufferReader = new BufferReader(buffer);
+
+    const tx = new Transaction();
+    tx.version = bufferReader.readInt32();
+    tx.nativeSegwit = isNativeSegwit;
+    if (isNativeSegwit) {
+      bufferReader.readUInt8(); // marker
+      bufferReader.readUInt8(); // flag
+    }
+
+    const vinLen = bufferReader.readVarInt();
+    for (let i = 0; i < vinLen; ++i) {
+      tx.ins.push({
+        hash: bufferReader.readSlice(32),
+        index: bufferReader.readUInt32(),
+        script: bufferReader.readVarSlice(),
+        sequence: bufferReader.readUInt32(),
+        witness: EMPTY_WITNESS,
+      });
+    }
+
+    const voutLen = bufferReader.readVarInt();
+    for (let i = 0; i < voutLen; ++i) {
+      tx.outs.push({
+        value: bufferReader.readUInt64(),
+        script: bufferReader.readVarSlice(),
+      });
+    }
+
+    if (isSigned && isNativeSegwit) {
+      for (let i = 0; i < vinLen; ++i) {
+        tx.ins[i].witness = bufferReader.readVector();
+      }
+
+      // was this pointless?
+      if (!tx.hasWitnesses())
+        throw new Error('Transaction has superfluous witness data');
+    }
+
+    tx.locktime = bufferReader.readUInt32();
+
+    if (_NO_STRICT) return tx;
+    if (bufferReader.offset !== buffer.length)
+      throw new Error('Transaction has unexpected data');
+
+    return tx;
+  }
+
+  static fromLedgerVaultHex(hex: string, isSigned: boolean, isNativeSegwit: boolean): Transaction {
+    return Transaction.fromLedgerVaultBuffer(Buffer.from(hex, 'hex'), false, isSigned, isNativeSegwit);
+  }
+
   static fromHex(hex: string): Transaction {
     return Transaction.fromBuffer(Buffer.from(hex, 'hex'), false);
   }
@@ -145,6 +198,7 @@ export class Transaction {
   locktime: number = 0;
   ins: Input[] = [];
   outs: Output[] = [];
+  nativeSegwit: boolean = false;
 
   isCoinbase(): boolean {
     return (
@@ -202,6 +256,14 @@ export class Transaction {
     });
   }
 
+  setNativeSegwit(ns: boolean) {
+    this.nativeSegwit = ns;
+  }
+
+  isNativeSegwit(): boolean {
+    return this.nativeSegwit;
+  }
+
   weight(): number {
     const base = this.byteLength(false);
     const total = this.byteLength(true);
@@ -216,7 +278,7 @@ export class Transaction {
     const hasWitnesses = _ALLOW_WITNESS && this.hasWitnesses();
 
     return (
-      (hasWitnesses ? 10 : 8) +
+      (this.isNativeSegwit() ? 10 : 8) +
       varuint.encodingLength(this.ins.length) +
       varuint.encodingLength(this.outs.length) +
       this.ins.reduce((sum, input) => {
@@ -631,9 +693,7 @@ export class Transaction {
 
     bufferWriter.writeInt32(this.version);
 
-    const hasWitnesses = _ALLOW_WITNESS && this.hasWitnesses();
-
-    if (hasWitnesses) {
+    if (this.isNativeSegwit()) {
       bufferWriter.writeUInt8(Transaction.ADVANCED_TRANSACTION_MARKER);
       bufferWriter.writeUInt8(Transaction.ADVANCED_TRANSACTION_FLAG);
     }
@@ -657,6 +717,8 @@ export class Transaction {
 
       bufferWriter.writeVarSlice(txOut.script);
     });
+
+    const hasWitnesses = _ALLOW_WITNESS && this.hasWitnesses();
 
     if (hasWitnesses) {
       this.ins.forEach(input => {
