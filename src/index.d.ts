@@ -5,7 +5,7 @@ import * as payments from './payments';
 import * as script from './script';
 import * as bufferutils from './bufferutils';
 import * as transaction from './transaction';
-export { address, crypto, networks, payments, script, bufferutils, transaction };
+export { address, crypto, networks, payments, script, bufferutils, transaction, };
 export { Block } from './block';
 export { TaggedHashPrefix } from './crypto';
 export { Psbt, PsbtTxInput, PsbtTxOutput, Signer, SignerAsync, HDSigner, HDSignerAsync, } from './psbt';

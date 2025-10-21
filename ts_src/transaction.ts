@@ -77,7 +77,7 @@ export class Transaction {
 
     const tx = new Transaction();
     tx.version = bufferReader.readInt32();
-    
+
     const marker = bufferReader.readUInt8();
     const flag = bufferReader.readUInt8();
 
@@ -129,7 +129,12 @@ export class Transaction {
     return tx;
   }
 
-  static fromLedgerVaultBuffer(buffer: Buffer, _NO_STRICT?: boolean, isSigned: boolean = true, isNativeSegwit: boolean = true): Transaction {
+  static fromLedgerVaultBuffer(
+    buffer: Buffer,
+    _NO_STRICT?: boolean,
+    isSigned: boolean = true,
+    isNativeSegwit: boolean = true,
+  ): Transaction {
     const bufferReader = new BufferReader(buffer);
 
     const tx = new Transaction();
@@ -178,8 +183,17 @@ export class Transaction {
     return tx;
   }
 
-  static fromLedgerVaultHex(hex: string, isSigned: boolean, isNativeSegwit: boolean): Transaction {
-    return Transaction.fromLedgerVaultBuffer(Buffer.from(hex, 'hex'), false, isSigned, isNativeSegwit);
+  static fromLedgerVaultHex(
+    hex: string,
+    isSigned: boolean,
+    isNativeSegwit: boolean,
+  ): Transaction {
+    return Transaction.fromLedgerVaultBuffer(
+      Buffer.from(hex, 'hex'),
+      false,
+      isSigned,
+      isNativeSegwit,
+    );
   }
 
   static fromHex(hex: string): Transaction {
