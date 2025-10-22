@@ -47,7 +47,9 @@ describe('types', () => {
       { value: 1, result: true },
       { value: 20999999 * 1e8, result: true },
       { value: 21000000 * 1e8, result: true },
-      { value: 21000001 * 1e8, result: false },
+      { value: 21000001 * 1e8, result: true },
+      { value: Number.MAX_SAFE_INTEGER, result: true },
+      { value: Number.MAX_SAFE_INTEGER + 1, result: false },
     ].forEach(f => {
       it('returns ' + f.result + ' for valid for ' + f.value, () => {
         assert.strictEqual(types.Satoshi(f.value), f.result);
