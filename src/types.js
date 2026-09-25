@@ -76,7 +76,10 @@ function Signer(obj) {
 }
 exports.Signer = Signer;
 const SATOSHI_MAX = 9007199254740991; // Number.MAX_SAFE_INTEGER
+const SATOSHI_MAX_BIGINT = BigInt('0x7fffffffffffffff'); // INT64_MAX
 function Satoshi(value) {
+  if (typeof value === 'bigint')
+    return value >= BigInt(0) && value <= SATOSHI_MAX_BIGINT;
   return exports.typeforce.UInt53(value) && value <= SATOSHI_MAX;
 }
 exports.Satoshi = Satoshi;

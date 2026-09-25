@@ -49,7 +49,7 @@ function isOutput(out: Output): boolean {
 
 export interface Output {
   script: Buffer;
-  value: number;
+  value: number | bigint;
 }
 
 export interface Input {
@@ -252,7 +252,7 @@ export class Transaction {
     );
   }
 
-  addOutput(scriptPubKey: Buffer, value: number): number {
+  addOutput(scriptPubKey: Buffer, value: number | bigint): number {
     typeforce(types.tuple(types.Buffer, types.Satoshi), arguments);
 
     // Add the output and return the output's index
@@ -421,7 +421,7 @@ export class Transaction {
   hashForWitnessV1(
     inIndex: number,
     prevOutScripts: Buffer[],
-    values: number[],
+    values: Array<number | bigint>,
     hashType: number,
     leafHash?: Buffer,
     annex?: Buffer,
@@ -573,7 +573,7 @@ export class Transaction {
   hashForWitnessV0(
     inIndex: number,
     prevOutScript: Buffer,
-    value: number,
+    value: number | bigint,
     hashType: number,
   ): Buffer {
     typeforce(
