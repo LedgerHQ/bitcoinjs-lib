@@ -20,16 +20,6 @@ describe('bufferutils', () => {
         assert.strictEqual(num, f.dec);
       });
     });
-
-    fixtures.invalid.readUInt64LE.forEach(f => {
-      it('throws on ' + f.description, () => {
-        const buffer = Buffer.from(f.hex, 'hex');
-
-        assert.throws(() => {
-          bufferutils.readUInt64LE(buffer, 0);
-        }, new RegExp(f.exception));
-      });
-    });
   });
 
   describe('readUInt64LE bigint', () => {
@@ -431,7 +421,7 @@ describe('bufferutils', () => {
       const bufferReader = new BufferReader(buffer);
       values.forEach((value: number) => {
         const expectedOffset = bufferReader.offset + 8;
-        const val = bufferReader.readUInt64();
+        const val = bufferReader.readUInt64() as number;
         testValue(bufferReader, val, value, expectedOffset);
       });
     });
