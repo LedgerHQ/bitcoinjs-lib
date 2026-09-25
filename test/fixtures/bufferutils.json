@@ -58,7 +58,20 @@
     }
   ],
   "invalid": {
-    "readUInt64LE": [],
+    "readUInt64LE": [
+      {
+        "description": "n === 2^53",
+        "exception": "RangeError: value out of range",
+        "hex": "0000000000002000",
+        "dec": 9007199254740992
+      },
+      {
+        "description": "n > 2^53",
+        "exception": "RangeError: value out of range",
+        "hex": "0100000000002000",
+        "dec": 9007199254740993
+      }
+    ],
     "writeUInt64LE": [
       {
         "description": "n === 2^53",
