@@ -48,7 +48,10 @@ export function Signer(obj: any): boolean {
 }
 
 const SATOSHI_MAX: number = 9007199254740991; // Number.MAX_SAFE_INTEGER
-export function Satoshi(value: number): boolean {
+const SATOSHI_MAX_BIGINT: bigint = BigInt('0x7fffffffffffffff'); // INT64_MAX
+export function Satoshi(value: number | bigint): boolean {
+  if (typeof value === 'bigint')
+    return value >= BigInt(0) && value <= SATOSHI_MAX_BIGINT;
   return typeforce.UInt53(value) && value <= SATOSHI_MAX;
 }
 

@@ -214,7 +214,7 @@ export class Psbt {
       } catch (_) {}
       return {
         script: cloneBuffer(output.script),
-        value: output.value,
+        value: output.value as number,
         address,
       };
     });
@@ -2024,11 +2024,11 @@ function inputFinalizeGetAmts(
       const nwTx = nonWitnessUtxoTxFromCache(cache, input, idx);
       const vout = tx.ins[idx].index;
       const out = nwTx.outs[vout] as Output;
-      inputAmount += out.value;
+      inputAmount += out.value as number;
     }
   });
   const outputAmount = (tx.outs as Output[]).reduce(
-    (total, o) => total + o.value,
+    (total, o) => total + (o.value as number),
     0,
   );
   const fee = inputAmount - outputAmount;
@@ -2079,7 +2079,7 @@ function getScriptAndAmountFromUtxo(
       inputIndex,
     );
     const o = nonWitnessUtxoTx.outs[cache.__TX.ins[inputIndex].index];
-    return { script: o.script, value: o.value };
+    return { script: o.script, value: o.value as number };
   } else {
     throw new Error("Can't find pubkey in input without Utxo data");
   }

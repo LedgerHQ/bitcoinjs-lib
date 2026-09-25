@@ -32,6 +32,52 @@ describe('bufferutils', () => {
     });
   });
 
+  describe('readUInt64LE bigint', () => {
+    [
+      { hex: '0000000000002000', dec: BigInt('9007199254740992') },
+      { hex: '78ac5ab18a9d9b00', dec: BigInt('43801840396708984') },
+      { hex: 'ffffffffffffffff', dec: BigInt('18446744073709551615') },
+    ].forEach(f => {
+      it('decodes ' + f.hex + ' as a bigint', () => {
+        const buffer = Buffer.from(f.hex, 'hex');
+        const num = bufferutils.readUInt64LE(buffer, 0);
+
+        assert.strictEqual(num, f.dec);
+      });
+    });
+  });
+
+  describe('writeUInt64LE bigint', () => {
+    [
+      { hex: '0100000000000000', dec: BigInt(1) },
+      { hex: '0000000000002000', dec: BigInt('9007199254740992') },
+      { hex: '78ac5ab18a9d9b00', dec: BigInt('43801840396708984') },
+    ].forEach(f => {
+      it('encodes bigint ' + f.dec, () => {
+        const buffer = Buffer.alloc(8, 0);
+
+        bufferutils.writeUInt64LE(buffer, f.dec, 0);
+        assert.strictEqual(buffer.toString('hex'), f.hex);
+      });
+    });
+
+    it('throws on n < 0', () => {
+      assert.throws(() => {
+        bufferutils.writeUInt64LE(Buffer.alloc(8, 0), BigInt(-1), 0);
+      }, /out of range/);
+    });
+
+    it('throws on n >= 2^64', () => {
+      assert.throws(() => {
+        bufferutils.writeUInt64LE(
+          Buffer.alloc(8, 0),
+          BigInt('18446744073709551616'),
+          0,
+        );
+      }, /out of range/);
+    });
+  });
+
   describe('writeUInt64LE', () => {
     fixtures.valid.forEach(f => {
       it('encodes ' + f.dec, () => {

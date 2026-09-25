@@ -2,7 +2,7 @@
 export declare function varSliceSize(someScript: Buffer): number;
 export interface Output {
     script: Buffer;
-    value: number;
+    value: number | bigint;
 }
 export interface Input {
     hash: Buffer;
@@ -34,7 +34,7 @@ export declare class Transaction {
     nativeSegwit: boolean;
     isCoinbase(): boolean;
     addInput(hash: Buffer, index: number, sequence?: number, scriptSig?: Buffer): number;
-    addOutput(scriptPubKey: Buffer, value: number): number;
+    addOutput(scriptPubKey: Buffer, value: number | bigint): number;
     hasWitnesses(): boolean;
     setNativeSegwit(ns: boolean): void;
     isNativeSegwit(): boolean;
@@ -51,8 +51,8 @@ export declare class Transaction {
      * This hash can then be used to sign the provided transaction input.
      */
     hashForSignature(inIndex: number, prevOutScript: Buffer, hashType: number): Buffer;
-    hashForWitnessV1(inIndex: number, prevOutScripts: Buffer[], values: number[], hashType: number, leafHash?: Buffer, annex?: Buffer): Buffer;
-    hashForWitnessV0(inIndex: number, prevOutScript: Buffer, value: number, hashType: number): Buffer;
+    hashForWitnessV1(inIndex: number, prevOutScripts: Buffer[], values: Array<number | bigint>, hashType: number, leafHash?: Buffer, annex?: Buffer): Buffer;
+    hashForWitnessV0(inIndex: number, prevOutScript: Buffer, value: number | bigint, hashType: number): Buffer;
     getHash(forWitness?: boolean): Buffer;
     getId(): string;
     toBuffer(buffer?: Buffer, initialOffset?: number): Buffer;
