@@ -1,3 +1,4 @@
+export declare function varSliceSize(someScript: Uint8Array): number;
 export interface Output {
     script: Uint8Array;
     value: bigint;
@@ -24,17 +25,27 @@ export declare class Transaction {
     static readonly ADVANCED_TRANSACTION_MARKER = 0;
     static readonly ADVANCED_TRANSACTION_FLAG = 1;
     static fromBuffer(buffer: Uint8Array, _NO_STRICT?: boolean): Transaction;
+    /**
+     * Parses a transaction in the Ledger Vault format: marker & flag are
+     * present for native segwit transactions even when they are unsigned,
+     * and witnesses are only read for signed transactions.
+     */
+    static fromLedgerVaultBuffer(buffer: Uint8Array, _NO_STRICT?: boolean, isSigned?: boolean, isNativeSegwit?: boolean): Transaction;
+    static fromLedgerVaultHex(hex: string, isSigned: boolean, isNativeSegwit: boolean): Transaction;
     static fromHex(hex: string): Transaction;
     static isCoinbaseHash(buffer: Uint8Array): boolean;
     version: number;
     locktime: number;
     ins: Input[];
     outs: Output[];
+    nativeSegwit: boolean;
     isCoinbase(): boolean;
     addInput(hash: Uint8Array, index: number, sequence?: number, scriptSig?: Uint8Array): number;
     addOutput(scriptPubKey: Uint8Array, value: bigint): number;
     hasWitnesses(): boolean;
     stripWitnesses(): void;
+    setNativeSegwit(ns: boolean): void;
+    isNativeSegwit(): boolean;
     weight(): number;
     virtualSize(): number;
     byteLength(_ALLOW_WITNESS?: boolean): number;

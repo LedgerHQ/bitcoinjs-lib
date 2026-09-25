@@ -11,7 +11,7 @@ import { OPS as opcodes } from './script.js';
 import * as types from './types.js';
 import * as tools from 'uint8array-tools';
 import * as v from 'valibot';
-function varSliceSize(someScript) {
+export function varSliceSize(someScript) {
   const length = someScript.length;
   return varuint.encodingLength(length) + length;
 }
@@ -100,6 +100,64 @@ export class Transaction {
       throw new Error('Transaction has unexpected data');
     return tx;
   }
+  /**
+   * Parses a transaction in the Ledger Vault format: marker & flag are
+   * present for native segwit transactions even when they are unsigned,
+   * and witnesses are only read for signed transactions.
+   */
+  static fromLedgerVaultBuffer(
+    buffer,
+    _NO_STRICT,
+    isSigned = true,
+    isNativeSegwit = true,
+  ) {
+    const bufferReader = new BufferReader(buffer);
+    const tx = new Transaction();
+    tx.version = bufferReader.readUInt32();
+    tx.nativeSegwit = isNativeSegwit;
+    if (isNativeSegwit) {
+      bufferReader.readUInt8(); // marker
+      bufferReader.readUInt8(); // flag
+    }
+    const vinLen = bufferReader.readVarInt();
+    for (let i = 0; i < vinLen; ++i) {
+      tx.ins.push({
+        hash: bufferReader.readSlice(32),
+        index: bufferReader.readUInt32(),
+        script: bufferReader.readVarSlice(),
+        sequence: bufferReader.readUInt32(),
+        witness: EMPTY_WITNESS,
+      });
+    }
+    const voutLen = bufferReader.readVarInt();
+    for (let i = 0; i < voutLen; ++i) {
+      tx.outs.push({
+        value: bufferReader.readInt64(),
+        script: bufferReader.readVarSlice(),
+      });
+    }
+    if (isSigned && isNativeSegwit) {
+      for (let i = 0; i < vinLen; ++i) {
+        tx.ins[i].witness = bufferReader.readVector();
+      }
+      // was this pointless?
+      if (!tx.hasWitnesses())
+        throw new Error('Transaction has superfluous witness data');
+    }
+    tx.locktime = bufferReader.readUInt32();
+    if (_NO_STRICT) return tx;
+    if (bufferReader.offset !== buffer.length)
+      throw new Error('Transaction has unexpected data');
+    return tx;
+  }
+  static fromLedgerVaultHex(hex, isSigned, isNativeSegwit) {
+    return Transaction.fromLedgerVaultBuffer(
+      tools.fromHex(hex),
+      false,
+      isSigned,
+      isNativeSegwit,
+    );
+  }
   static fromHex(hex) {
     return Transaction.fromBuffer(tools.fromHex(hex), false);
   }
@@ -114,6 +172,7 @@ export class Transaction {
   locktime = 0;
   ins = [];
   outs = [];
+  nativeSegwit = false;
   isCoinbase() {
     return (
       this.ins.length === 1 && Transaction.isCoinbaseHash(this.ins[0].hash)
@@ -166,6 +225,12 @@ export class Transaction {
       input.witness = EMPTY_WITNESS; // Set witness data to an empty array
     });
   }
+  setNativeSegwit(ns) {
+    this.nativeSegwit = ns;
+  }
+  isNativeSegwit() {
+    return this.nativeSegwit;
+  }
   weight() {
     const base = this.byteLength(false);
     const total = this.byteLength(true);
@@ -176,8 +241,10 @@ export class Transaction {
   }
   byteLength(_ALLOW_WITNESS = true) {
     const hasWitnesses = _ALLOW_WITNESS && this.hasWitnesses();
+    // marker & flag are also needed without witnesses for the HSM to sign
+    const hasMarker = hasWitnesses || (_ALLOW_WITNESS && this.isNativeSegwit());
     return (
-      (hasWitnesses ? 10 : 8) +
+      (hasMarker ? 10 : 8) +
       varuint.encodingLength(this.ins.length) +
       varuint.encodingLength(this.outs.length) +
       this.ins.reduce((sum, input) => {
@@ -516,7 +583,9 @@ export class Transaction {
     const bufferWriter = new BufferWriter(buffer, initialOffset || 0);
     bufferWriter.writeUInt32(this.version);
     const hasWitnesses = _ALLOW_WITNESS && this.hasWitnesses();
-    if (hasWitnesses) {
+    // marker & flag are also needed without witnesses for the HSM to sign
+    const hasMarker = hasWitnesses || (_ALLOW_WITNESS && this.isNativeSegwit());
+    if (hasMarker) {
       bufferWriter.writeUInt8(Transaction.ADVANCED_TRANSACTION_MARKER);
       bufferWriter.writeUInt8(Transaction.ADVANCED_TRANSACTION_FLAG);
     }
