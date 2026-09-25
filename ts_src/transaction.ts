@@ -290,9 +290,11 @@ export class Transaction {
 
   byteLength(_ALLOW_WITNESS: boolean = true): number {
     const hasWitnesses = _ALLOW_WITNESS && this.hasWitnesses();
+    // marker & flag are also needed without witnesses for the HSM to sign
+    const hasMarker = hasWitnesses || (_ALLOW_WITNESS && this.isNativeSegwit());
 
     return (
-      (this.isNativeSegwit() ? 10 : 8) +
+      (hasMarker ? 10 : 8) +
       varuint.encodingLength(this.ins.length) +
       varuint.encodingLength(this.outs.length) +
       this.ins.reduce((sum, input) => {
@@ -707,7 +709,11 @@ export class Transaction {
 
     bufferWriter.writeInt32(this.version);
 
-    if (this.isNativeSegwit()) {
+    const hasWitnesses = _ALLOW_WITNESS && this.hasWitnesses();
+    // marker & flag are also needed without witnesses for the HSM to sign
+    const hasMarker = hasWitnesses || (_ALLOW_WITNESS && this.isNativeSegwit());
+
+    if (hasMarker) {
       bufferWriter.writeUInt8(Transaction.ADVANCED_TRANSACTION_MARKER);
       bufferWriter.writeUInt8(Transaction.ADVANCED_TRANSACTION_FLAG);
     }
@@ -731,8 +737,6 @@ export class Transaction {
 
       bufferWriter.writeVarSlice(txOut.script);
     });
-
-    const hasWitnesses = _ALLOW_WITNESS && this.hasWitnesses();
 
     if (hasWitnesses) {
       this.ins.forEach(input => {

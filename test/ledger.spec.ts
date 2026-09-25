@@ -189,6 +189,30 @@ describe('Ledger fork customizations', () => {
     });
   });
 
+  describe('standard segwit behavior is preserved', () => {
+    it('computes the txid without marker & flag', () => {
+      const legacyId =
+        '9b644e17ca5d8e4d0687c8441d2ad16787287b037184d126c0b44709f6f24b0a';
+      assert.strictEqual(buildTx(false, false).getId(), legacyId);
+      assert.strictEqual(buildTx(true, false).getId(), legacyId);
+      assert.strictEqual(buildTx(true, true).getId(), legacyId);
+    });
+
+    it('computes weight without marker & flag in the base size', () => {
+      assert.strictEqual(buildTx(false, false).weight(), 157 * 4);
+      assert.strictEqual(buildTx(true, false).weight(), 157 * 3 + 159);
+      assert.strictEqual(buildTx(true, true).weight(), 157 * 3 + 374);
+    });
+
+    it('round-trips a witness transaction parsed with fromHex', () => {
+      const tx = Transaction.fromHex(VECTORS.nativeSegwitSigned);
+      assert.strictEqual(tx.isNativeSegwit(), false);
+      assertParsedTx(tx, true);
+      assert.strictEqual(tx.toHex(), VECTORS.nativeSegwitSigned);
+      assert.strictEqual(tx.byteLength(), 374);
+    });
+  });
+
   describe('fromLedgerVaultHex / fromLedgerVaultBuffer', () => {
     it('parses an unsigned native segwit transaction', () => {
       const tx = Transaction.fromLedgerVaultHex(
