@@ -26,11 +26,13 @@ function readUInt64LE(buffer, offset) {
   const a = buffer.readUInt32LE(offset);
   let b = buffer.readUInt32LE(offset + 4);
   b *= 0x100000000;
-  verifuint(b + a, 0x001fffffffffffff);
+  // Values above Number.MAX_SAFE_INTEGER cannot be represented as a number
+  if (b + a > 0x001fffffffffffff) return buffer.readBigUInt64LE(offset);
   return b + a;
 }
 exports.readUInt64LE = readUInt64LE;
 function writeUInt64LE(buffer, value, offset) {
+  if (typeof value === 'bigint') return buffer.writeBigUInt64LE(value, offset);
   verifuint(value, 0x001fffffffffffff);
   buffer.writeInt32LE(value & -1, offset);
   buffer.writeUInt32LE(Math.floor(value / 0x100000000), offset + 4);

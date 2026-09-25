@@ -195,6 +195,27 @@ describe('Transaction', () => {
       assert.strictEqual(tx.addOutput(Buffer.alloc(0), 0), 0);
       assert.strictEqual(tx.addOutput(Buffer.alloc(0), 0), 1);
     });
+
+    it('round-trips values above Number.MAX_SAFE_INTEGER as bigint', () => {
+      const tx = new Transaction();
+      tx.addInput(Buffer.alloc(32), 0);
+      tx.addOutput(Buffer.alloc(0), 8000000000000000);
+      tx.addOutput(Buffer.alloc(0), BigInt('43801840396708984'));
+
+      const decoded = Transaction.fromHex(tx.toHex());
+      assert.strictEqual(decoded.outs[0].value, 8000000000000000);
+      assert.strictEqual(decoded.outs[1].value, BigInt('43801840396708984'));
+
+      const vault = Transaction.fromLedgerVaultHex(tx.toHex(), false, false);
+      assert.strictEqual(vault.outs[1].value, BigInt('43801840396708984'));
+    });
+
+    it('throws on bigint values above INT64_MAX', () => {
+      const tx = new Transaction();
+      assert.throws(() => {
+        tx.addOutput(Buffer.alloc(0), BigInt('9223372036854775808'));
+      }, /Expected property "1" of type Satoshi/);
+    });
   });
 
   describe('clone', () => {

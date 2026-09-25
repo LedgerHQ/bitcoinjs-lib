@@ -14,20 +14,23 @@ function verifuint(value: number, max: number): void {
     throw new Error('value has a fractional component');
 }
 
-export function readUInt64LE(buffer: Buffer, offset: number): number {
+export function readUInt64LE(buffer: Buffer, offset: number): number | bigint {
   const a = buffer.readUInt32LE(offset);
   let b = buffer.readUInt32LE(offset + 4);
   b *= 0x100000000;
 
-  verifuint(b + a, 0x001fffffffffffff);
+  // Values above Number.MAX_SAFE_INTEGER cannot be represented as a number
+  if (b + a > 0x001fffffffffffff) return buffer.readBigUInt64LE(offset);
   return b + a;
 }
 
 export function writeUInt64LE(
   buffer: Buffer,
-  value: number,
+  value: number | bigint,
   offset: number,
 ): number {
+  if (typeof value === 'bigint') return buffer.writeBigUInt64LE(value, offset);
+
   verifuint(value, 0x001fffffffffffff);
 
   buffer.writeInt32LE(value & -1, offset);
@@ -78,7 +81,7 @@ export class BufferWriter {
     this.offset = this.buffer.writeUInt32LE(i, this.offset);
   }
 
-  writeUInt64(i: number): void {
+  writeUInt64(i: number | bigint): void {
     this.offset = writeUInt64LE(this.buffer, i, this.offset);
   }
 
@@ -138,7 +141,7 @@ export class BufferReader {
     return result;
   }
 
-  readUInt64(): number {
+  readUInt64(): number | bigint {
     const result = readUInt64LE(this.buffer, this.offset);
     this.offset += 8;
     return result;

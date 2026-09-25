@@ -1,6 +1,6 @@
 'use strict';
 Object.defineProperty(exports, '__esModule', { value: true });
-exports.Transaction = void 0;
+exports.Transaction = exports.varSliceSize = void 0;
 const bufferutils_1 = require('./bufferutils');
 const bcrypto = require('./crypto');
 const bscript = require('./script');
@@ -11,6 +11,7 @@ function varSliceSize(someScript) {
   const length = someScript.length;
   return bufferutils_1.varuint.encodingLength(length) + length;
 }
+exports.varSliceSize = varSliceSize;
 function vectorSize(someVector) {
   const length = someVector.length;
   return (
@@ -44,6 +45,7 @@ class Transaction {
     this.locktime = 0;
     this.ins = [];
     this.outs = [];
+    this.nativeSegwit = false;
   }
   static fromBuffer(buffer, _NO_STRICT) {
     const bufferReader = new bufferutils_1.BufferReader(buffer);
@@ -90,6 +92,59 @@ class Transaction {
     if (bufferReader.offset !== buffer.length)
       throw new Error('Transaction has unexpected data');
     return tx;
+  }
+  static fromLedgerVaultBuffer(
+    buffer,
+    _NO_STRICT,
+    isSigned = true,
+    isNativeSegwit = true,
+  ) {
+    const bufferReader = new bufferutils_1.BufferReader(buffer);
+    const tx = new Transaction();
+    tx.version = bufferReader.readInt32();
+    tx.nativeSegwit = isNativeSegwit;
+    if (isNativeSegwit) {
+      bufferReader.readUInt8(); // marker
+      bufferReader.readUInt8(); // flag
+    }
+    const vinLen = bufferReader.readVarInt();
+    for (let i = 0; i < vinLen; ++i) {
+      tx.ins.push({
+        hash: bufferReader.readSlice(32),
+        index: bufferReader.readUInt32(),
+        script: bufferReader.readVarSlice(),
+        sequence: bufferReader.readUInt32(),
+        witness: EMPTY_WITNESS,
+      });
+    }
+    const voutLen = bufferReader.readVarInt();
+    for (let i = 0; i < voutLen; ++i) {
+      tx.outs.push({
+        value: bufferReader.readUInt64(),
+        script: bufferReader.readVarSlice(),
+      });
+    }
+    if (isSigned && isNativeSegwit) {
+      for (let i = 0; i < vinLen; ++i) {
+        tx.ins[i].witness = bufferReader.readVector();
+      }
+      // was this pointless?
+      if (!tx.hasWitnesses())
+        throw new Error('Transaction has superfluous witness data');
+    }
+    tx.locktime = bufferReader.readUInt32();
+    if (_NO_STRICT) return tx;
+    if (bufferReader.offset !== buffer.length)
+      throw new Error('Transaction has unexpected data');
+    return tx;
+  }
+  static fromLedgerVaultHex(hex, isSigned, isNativeSegwit) {
+    return Transaction.fromLedgerVaultBuffer(
+      Buffer.from(hex, 'hex'),
+      false,
+      isSigned,
+      isNativeSegwit,
+    );
   }
   static fromHex(hex) {
     return Transaction.fromBuffer(Buffer.from(hex, 'hex'), false);
@@ -145,6 +200,12 @@ class Transaction {
       return x.witness.length !== 0;
     });
   }
+  setNativeSegwit(ns) {
+    this.nativeSegwit = ns;
+  }
+  isNativeSegwit() {
+    return this.nativeSegwit;
+  }
   weight() {
     const base = this.byteLength(false);
     const total = this.byteLength(true);
@@ -156,7 +217,7 @@ class Transaction {
   byteLength(_ALLOW_WITNESS = true) {
     const hasWitnesses = _ALLOW_WITNESS && this.hasWitnesses();
     return (
-      (hasWitnesses ? 10 : 8) +
+      (this.isNativeSegwit() ? 10 : 8) +
       bufferutils_1.varuint.encodingLength(this.ins.length) +
       bufferutils_1.varuint.encodingLength(this.outs.length) +
       this.ins.reduce((sum, input) => {
@@ -496,8 +557,7 @@ class Transaction {
       initialOffset || 0,
     );
     bufferWriter.writeInt32(this.version);
-    const hasWitnesses = _ALLOW_WITNESS && this.hasWitnesses();
-    if (hasWitnesses) {
+    if (this.isNativeSegwit()) {
       bufferWriter.writeUInt8(Transaction.ADVANCED_TRANSACTION_MARKER);
       bufferWriter.writeUInt8(Transaction.ADVANCED_TRANSACTION_FLAG);
     }
@@ -517,6 +577,7 @@ class Transaction {
       }
       bufferWriter.writeVarSlice(txOut.script);
     });
+    const hasWitnesses = _ALLOW_WITNESS && this.hasWitnesses();
     if (hasWitnesses) {
       this.ins.forEach(input => {
         bufferWriter.writeVector(input.witness);

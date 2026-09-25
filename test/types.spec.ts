@@ -47,9 +47,24 @@ describe('types', () => {
       { value: 1, result: true },
       { value: 20999999 * 1e8, result: true },
       { value: 21000000 * 1e8, result: true },
-      { value: 21000001 * 1e8, result: false },
+      { value: 21000001 * 1e8, result: true },
+      { value: Number.MAX_SAFE_INTEGER, result: true },
+      { value: Number.MAX_SAFE_INTEGER + 1, result: false },
     ].forEach(f => {
       it('returns ' + f.result + ' for valid for ' + f.value, () => {
+        assert.strictEqual(types.Satoshi(f.value), f.result);
+      });
+    });
+
+    [
+      { value: BigInt(-1), result: false },
+      { value: BigInt(0), result: true },
+      { value: BigInt(Number.MAX_SAFE_INTEGER) + BigInt(1), result: true },
+      { value: BigInt('43801840396708984'), result: true },
+      { value: BigInt('9223372036854775807'), result: true },
+      { value: BigInt('9223372036854775808'), result: false },
+    ].forEach(f => {
+      it('returns ' + f.result + ' for valid for bigint ' + f.value, () => {
         assert.strictEqual(types.Satoshi(f.value), f.result);
       });
     });
