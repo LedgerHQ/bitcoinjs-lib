@@ -2,18 +2,22 @@
 // These must keep passing when the fork is rebased on a new upstream version.
 import * as assert from 'assert';
 import { describe, it } from 'mocha';
-import * as bitcoin from '..';
-import { Transaction } from '..';
+import * as bitcoin from 'bitcoinjs-lib';
+import { Transaction } from 'bitcoinjs-lib';
+import * as tools from 'uint8array-tools';
 import * as ecc from 'tiny-secp256k1';
 
-const BIG_VALUE = BigInt('43801840396708984'); // > Number.MAX_SAFE_INTEGER
+const BIG_VALUE = 43801840396708984n; // > Number.MAX_SAFE_INTEGER
 
-const P2WPKH_SCRIPT = Buffer.from('0014' + '33'.repeat(20), 'hex');
-const P2PKH_SCRIPT = Buffer.from('76a914' + '44'.repeat(20) + '88ac', 'hex');
-const P2TR_SCRIPT = Buffer.from('5120' + '77'.repeat(32), 'hex');
+const filled = (length: number, byte: number): Uint8Array =>
+  new Uint8Array(length).fill(byte);
 
-const WITNESS_0 = [Buffer.alloc(71, 0x55), Buffer.alloc(33, 0x02)];
-const WITNESS_1 = [Buffer.alloc(72, 0x66), Buffer.alloc(33, 0x03)];
+const P2WPKH_SCRIPT = tools.fromHex('0014' + '33'.repeat(20));
+const P2PKH_SCRIPT = tools.fromHex('76a914' + '44'.repeat(20) + '88ac');
+const P2TR_SCRIPT = tools.fromHex('5120' + '77'.repeat(32));
+
+const WITNESS_0 = [filled(71, 0x55), filled(33, 0x02)];
+const WITNESS_1 = [filled(72, 0x66), filled(33, 0x03)];
 
 const INS_HEX =
   '02' +
@@ -29,10 +33,10 @@ const OUTS_HEX =
   '02' +
   '3930000000000000' +
   '16' +
-  P2WPKH_SCRIPT.toString('hex') +
+  tools.toHex(P2WPKH_SCRIPT) +
   '78ac5ab18a9d9b00' +
   '19' +
-  P2PKH_SCRIPT.toString('hex');
+  tools.toHex(P2PKH_SCRIPT);
 const WITNESSES_HEX =
   '02' +
   '47' +
@@ -60,9 +64,9 @@ function buildTx(nativeSegwit: boolean, withWitnesses: boolean): Transaction {
   const tx = new Transaction();
   tx.version = 2;
   tx.locktime = 600000;
-  tx.addInput(Buffer.alloc(32, 0x11), 0, 0xfffffffd);
-  tx.addInput(Buffer.alloc(32, 0x22), 1);
-  tx.addOutput(P2WPKH_SCRIPT, 12345);
+  tx.addInput(filled(32, 0x11), 0, 0xfffffffd);
+  tx.addInput(filled(32, 0x22), 1);
+  tx.addOutput(P2WPKH_SCRIPT, 12345n);
   tx.addOutput(P2PKH_SCRIPT, BIG_VALUE);
   tx.setNativeSegwit(nativeSegwit);
   if (withWitnesses) {
@@ -76,14 +80,14 @@ function assertParsedTx(tx: Transaction, withWitnesses: boolean): void {
   assert.strictEqual(tx.version, 2);
   assert.strictEqual(tx.locktime, 600000);
   assert.strictEqual(tx.ins.length, 2);
-  assert.deepStrictEqual(tx.ins[0].hash, Buffer.alloc(32, 0x11));
+  assert.deepStrictEqual(tx.ins[0].hash, filled(32, 0x11));
   assert.strictEqual(tx.ins[0].index, 0);
   assert.strictEqual(tx.ins[0].sequence, 0xfffffffd);
-  assert.deepStrictEqual(tx.ins[1].hash, Buffer.alloc(32, 0x22));
+  assert.deepStrictEqual(tx.ins[1].hash, filled(32, 0x22));
   assert.strictEqual(tx.ins[1].index, 1);
   assert.strictEqual(tx.ins[1].sequence, 0xffffffff);
   assert.strictEqual(tx.outs.length, 2);
-  assert.strictEqual(tx.outs[0].value, 12345);
+  assert.strictEqual(tx.outs[0].value, 12345n);
   assert.deepStrictEqual(tx.outs[0].script, P2WPKH_SCRIPT);
   assert.strictEqual(tx.outs[1].value, BIG_VALUE);
   assert.deepStrictEqual(tx.outs[1].script, P2PKH_SCRIPT);
@@ -104,11 +108,11 @@ describe('Ledger fork customizations', () => {
       assert.strictEqual(typeof bitcoin.bufferutils.reverseBuffer, 'function');
       assert.strictEqual(bitcoin.transaction.Transaction, Transaction);
       assert.strictEqual(
-        bitcoin.transaction.varSliceSize(Buffer.alloc(10)),
+        bitcoin.transaction.varSliceSize(new Uint8Array(10)),
         11,
       );
       assert.strictEqual(
-        bitcoin.transaction.varSliceSize(Buffer.alloc(253)),
+        bitcoin.transaction.varSliceSize(new Uint8Array(253)),
         256,
       );
     });
@@ -120,29 +124,23 @@ describe('Ledger fork customizations', () => {
       bitcoin.initEccLib(ecc);
       const G_X =
         '79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
+      assert.strictEqual(bitcoin.isP2TR(tools.fromHex('5120' + G_X)), true);
       assert.strictEqual(
-        bitcoin.isP2TR(Buffer.from('5120' + G_X, 'hex')),
+        bitcoin.isP2SHScript(tools.fromHex('a914' + '55'.repeat(20) + '87')),
         true,
       );
       assert.strictEqual(
-        bitcoin.isP2SHScript(
-          Buffer.from('a914' + '55'.repeat(20) + '87', 'hex'),
-        ),
+        bitcoin.isP2WSHScript(tools.fromHex('0020' + '66'.repeat(32))),
         true,
       );
       assert.strictEqual(
-        bitcoin.isP2WSHScript(Buffer.from('0020' + '66'.repeat(32), 'hex')),
-        true,
-      );
-      assert.strictEqual(
-        bitcoin.isP2PK(Buffer.from('21' + '02'.repeat(33) + 'ac', 'hex')),
+        bitcoin.isP2PK(tools.fromHex('21' + '02'.repeat(33) + 'ac')),
         true,
       );
       assert.strictEqual(
         bitcoin.isP2MS(
-          Buffer.from(
+          tools.fromHex(
             '5121' + '02'.repeat(33) + '21' + '03'.repeat(33) + '52ae',
-            'hex',
           ),
         ),
         true,
@@ -251,7 +249,7 @@ describe('Ledger fork customizations', () => {
 
     it('parses a signed native segwit transaction by default', () => {
       const tx = Transaction.fromLedgerVaultBuffer(
-        Buffer.from(VECTORS.nativeSegwitSigned, 'hex'),
+        tools.fromHex(VECTORS.nativeSegwitSigned),
       );
       assertParsedTx(tx, true);
       assert.strictEqual(tx.isNativeSegwit(), true);
@@ -273,10 +271,7 @@ describe('Ledger fork customizations', () => {
     });
 
     it('throws on trailing data unless _NO_STRICT', () => {
-      const buffer = Buffer.from(
-        VECTORS.nativeSegwitUnsigned + 'deadbeef',
-        'hex',
-      );
+      const buffer = tools.fromHex(VECTORS.nativeSegwitUnsigned + 'deadbeef');
       assert.throws(() => {
         Transaction.fromLedgerVaultBuffer(buffer, false, false, true);
       }, /Transaction has unexpected data/);
@@ -288,12 +283,12 @@ describe('Ledger fork customizations', () => {
   describe('values above Number.MAX_SAFE_INTEGER', () => {
     it('accepts output values up to INT64_MAX', () => {
       const tx = new Transaction();
-      tx.addOutput(P2PKH_SCRIPT, BigInt('9223372036854775807'));
+      tx.addOutput(P2PKH_SCRIPT, 0x7fff_ffff_ffff_ffffn);
       assert.throws(() => {
-        tx.addOutput(P2PKH_SCRIPT, BigInt('9223372036854775808'));
+        tx.addOutput(P2PKH_SCRIPT, 0x8000_0000_0000_0000n);
       });
       assert.throws(() => {
-        tx.addOutput(P2PKH_SCRIPT, BigInt(-1));
+        tx.addOutput(P2PKH_SCRIPT, -1n);
       });
     });
 
@@ -310,25 +305,25 @@ describe('Ledger fork customizations', () => {
         true,
       );
       assert.strictEqual(
-        tx
-          .hashForWitnessV0(
+        tools.toHex(
+          tx.hashForWitnessV0(
             0,
-            Buffer.from('76a914' + '33'.repeat(20) + '88ac', 'hex'),
+            tools.fromHex('76a914' + '33'.repeat(20) + '88ac'),
             BIG_VALUE,
             Transaction.SIGHASH_ALL,
-          )
-          .toString('hex'),
+          ),
+        ),
         'b8c00893a2a7febc0018111affe2bead4f642a0b54bb1d27c49956f79a0939ef',
       );
       assert.strictEqual(
-        tx
-          .hashForWitnessV1(
+        tools.toHex(
+          tx.hashForWitnessV1(
             1,
             [P2WPKH_SCRIPT, P2TR_SCRIPT],
-            [BIG_VALUE, 5000],
+            [BIG_VALUE, 5000n],
             Transaction.SIGHASH_DEFAULT,
-          )
-          .toString('hex'),
+          ),
+        ),
         'f935c28a65bcebf375cf084e7d048a1c15552edbb0a855a39b28df77f9f77aee',
       );
     });
